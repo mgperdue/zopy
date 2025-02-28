@@ -1,0 +1,11 @@
+include README.md
+include LICENSE
+include requirements.txt
+include Makefile
+recursive-include src *
+recursive-include docs *
+recursive-include examples *
+recursive-include tests *
+prune build
+prune dist
+prune *.egg-info
