@@ -1,5 +1,6 @@
 import json
 import os
+
 from zopy.core.logging_config import logger
 
 TOKEN_FILE = "tokens.json"

@@ -1,4 +1,5 @@
 import webbrowser
+
 from zopy.auth.oauth import OAuth
 from zopy.auth.token_manager import TokenManager
 

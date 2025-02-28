@@ -1,48 +1,54 @@
+import json
+import time
+
 import requests
-import logging
 
-logger = logging.getLogger("zopy.auth")
+TOKEN_FILE = "zopy_token.json"
+ZOHO_AUTH_URL = "https://accounts.zoho.com/oauth/v2/token"
+CLIENT_ID = "your_client_id"
+CLIENT_SECRET = "your_client_secret"
+REFRESH_TOKEN = "your_refresh_token"
 
 
-class OAuth:
-    AUTH_URL = "https://accounts.zoho.com/oauth/v2/auth"
-    TOKEN_URL = "https://accounts.zoho.com/oauth/v2/token"
+class OAuthHandler:
+    """Handles OAuth 2.0 authentication and token refreshing."""
 
-    def __init__(self, client_id, client_secret, redirect_uri):
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.redirect_uri = redirect_uri
+    @staticmethod
+    def get_access_token():
+        """Retrieves a valid access token, refreshing it if needed."""
+        token_data = OAuthHandler._load_token()
+        if time.time() > token_data["expires_at"]:
+            return OAuthHandler.refresh_access_token()
+        return token_data["access_token"]
 
-    def get_auth_url(self, scope="ZohoCRM.modules.ALL"):
-        """Generate OAuth authorization URL."""
-        params = {
-            "client_id": self.client_id,
-            "redirect_uri": self.redirect_uri,
-            "response_type": "code",
-            "scope": scope,
-            "access_type": "offline",
-        }
-        return f"{self.AUTH_URL}?{'&'.join(f'{k}={v}' for k, v in params.items())}"
-
-    def exchange_code_for_token(self, code):
-        """Exchange authorization code for access and refresh tokens."""
+    @staticmethod
+    def refresh_access_token():
+        """Refreshes the OAuth token when expired."""
         payload = {
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
-            "redirect_uri": self.redirect_uri,
-            "grant_type": "authorization_code",
-            "code": code,
-        }
-        response = requests.post(self.TOKEN_URL, data=payload)
-        return response.json()
-
-    def refresh_access_token(self, refresh_token):
-        """Refresh expired access token."""
-        payload = {
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
+            "refresh_token": REFRESH_TOKEN,
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
             "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
         }
-        response = requests.post(self.TOKEN_URL, data=payload)
-        return response.json()
+        response = requests.post(ZOHO_AUTH_URL, data=payload).json()
+        OAuthHandler._save_token(response["access_token"], response["expires_in"])
+        return response["access_token"]
+
+    @staticmethod
+    def _load_token():
+        """Loads the stored token from file."""
+        try:
+            with open(TOKEN_FILE, "r") as file:
+                return json.load(file)
+        except FileNotFoundError:
+            return {"access_token": None, "expires_at": 0}
+
+    @staticmethod
+    def _save_token(access_token, expires_in):
+        """Saves the token securely."""
+        token_data = {
+            "access_token": access_token,
+            "expires_at": time.time() + expires_in,
+        }
+        with open(TOKEN_FILE, "w") as file:
+            json.dump(token_data, file)
